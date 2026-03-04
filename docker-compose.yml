@@ -26,6 +26,7 @@ services:
     environment:
       # ---- Business ----
       TRANSFER_MIN_AMOUNT: 1
+      REPOSITORY_CONFIG: MYSQL
 
       # ---- Mongo ----
       MONGODB_CONNECT_TIMEOUT: 10s
@@ -35,6 +36,15 @@ services:
       MONGODB_PASSWORD: root
       MONGODB_DATABASE: transfers-db
       MONGODB_COLLECTION: transfers
+
+      # ---- MySql ----
+      MYSQL_CONNECT_TIMEOUT: 10s
+      MYSQL_HOSTNAME: mongodb
+      MYSQL_PORT: 27017
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: transfers-db
+      MYSQL_COLLECTION: transfers
 
     restart: always
 

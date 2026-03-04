@@ -20,7 +20,44 @@ func main() {
 	logger.Infof("config loaded: %v", cfg.String())
 
 	// init repositories
-	transfersDB := repositories.NewTransfersMongoDBRepository(cfg.MongoDBConfig)
+	var transfersDB services.TransfersRepository
+
+	if cfg.Business.RepositoryConfig == "MONGO" {
+		transfersDB = repositories.NewTransfersMongoDBRepository(cfg.MongoDBConfig)
+		logger.Info("Mongo repositories created")
+	}else{
+		transfersDB = repositories.NewTransfersMysqlRepository(cfg.MYSQLConfig)
+		logger.Info("Mysql repositories created")
+	}
+
+	// init services
+	transfersService := services.NewTransfersService(cfg.Business, transfersDB)
+	logger.Infof("services created")
+
+	// init handlers
+	transfersHandler := handlers.NewTransfersHandler(transfersService)
+	logger.Infof("handlers created")
+
+	// init server
+	server := transport.NewHTTPServer(transfersHandler)
+	server.MapRoutes()
+	logger.Infof("server created, running %s@%s", version.AppName, version.Version)
+
+	// run server
+	server.Run(":8080")
+}
+
+func main2() {
+	// init logger
+	logger := logging.Logger
+	logger.Info("logger started")
+
+	// init config
+	cfg := config.ParseFromEnv()
+	logger.Infof("config loaded: %v", cfg.String())
+
+	// init repositories
+	transfersDB := repositories.NewTransfersMysqlRepository(cfg.MYSQLConfig)
 	logger.Info("repositories created")
 
 	// init services
