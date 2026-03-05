@@ -49,3 +49,9 @@ func (r *TransfersMysqlRepo) Delete(ctx context.Context, id string) error {
 	fmt.Println("Deleted id")
 	return nil
 }
+
+func (r *TransfersMysqlRepo) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
+	var transferResult []models.Transfer
+	fmt.Println("GetByUserID")
+	return  transferResult, nil
+}
