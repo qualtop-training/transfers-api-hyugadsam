@@ -21,7 +21,7 @@ type transferMysqlDAO struct {
 	State      string             `bson:"state"`
 }
 
-func NewTransfersMysqlRepository(cfg config.Mysql) *TransfersMysqlRepo {
+func NewTransfersMysqlRepository(cfg config.MySQL) *TransfersMysqlRepo {
 	return &TransfersMysqlRepo{collection: "Values"}
 }
 

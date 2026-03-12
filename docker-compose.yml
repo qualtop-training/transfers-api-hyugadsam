@@ -12,6 +12,25 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  mysql:
+    image: mysql:8.0
+    container_name: transfers-mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transfers-db
+    volumes:
+      - mysql_data:/data/db
+
+  memcached:
+    image: memcached:1.6
+    container_name: transfers-memcached
+    restart: always
+    ports:
+      - "11211:11211"
+
   app:
     image: transfers-api:0.1.0
     build:
@@ -26,7 +45,6 @@ services:
     environment:
       # ---- Business ----
       TRANSFER_MIN_AMOUNT: 1
-      REPOSITORY_CONFIG: MONGO
 
       # ---- Mongo ----
       MONGODB_CONNECT_TIMEOUT: 10s
@@ -37,16 +55,11 @@ services:
       MONGODB_DATABASE: transfers-db
       MONGODB_COLLECTION: transfers
 
-      # ---- MySql ----
-      MYSQL_CONNECT_TIMEOUT: 10s
-      MYSQL_HOSTNAME: mongodb
-      MYSQL_PORT: 27017
-      MYSQL_USERNAME: root
-      MYSQL_PASSWORD: root
-      MYSQL_DATABASE: transfers-db
-      MYSQL_COLLECTION: transfers
+      # ---- LocalCache ----
+      LocalCache_TTL_SECONDS: 30
 
     restart: always
 
 volumes:
   mongo_data:
+  mysql_data:

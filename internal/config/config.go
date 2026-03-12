@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Business      BusinessConfig `json:"business"`
-	MongoDBConfig MongoDB        `json:"mongodb"`
-	MYSQLConfig Mysql        `json:"mysql"`
+	Business        BusinessConfig `json:"business"`
+	MongoDBConfig   MongoDB        `json:"mongodb"`
+	MySQLConfig     MySQL          `json:"mysql"`
+	MemcachedConfig Memcached      `json:"memcached"`
+	LocalCacheConfig LocalCache      `json:"LocalCache"`
 }
 
 type BusinessConfig struct {
-	RepositoryConfig string `env:"REPOSITORY_CONFIG" envDefault:"Mongo" json:"RepositoryConfig"`
 	TransferMinAmount int `env:"TRANSFER_MIN_AMOUNT" envDefault:"1" json:"transfer_min_amount"`
 }
 
@@ -29,14 +30,22 @@ type MongoDB struct {
 	Collection     string        `env:"MONGODB_COLLECTION" envDefault:"transfers" json:"collection"`
 }
 
-type Mysql struct{
-	ConnectTimeout time.Duration `env:"MYSQL_CONNECT_TIMEOUT" envDefault:"10s" json:"connect_timeout"`
-	Hostname       string        `env:"MYSQL_HOSTNAME" envDefault:"mongodb" json:"hostname"`
-	Port           int           `env:"MYSQL_PORT" envDefault:"27017" json:"port"`
-	Username       string        `env:"MYSQL_USERNAME" envDefault:"root" json:"username"`
-	Password       string        `env:"MYSQL_PASSWORD" envDefault:"root" json:"password"`
-	Database       string        `env:"MYSQL_DATABASE" envDefault:"transfers-db" json:"database"`
-	Collection     string        `env:"MYSQL_COLLECTION" envDefault:"transfers" json:"collection"`
+type MySQL struct {
+	Hostname string `env:"MYSQL_HOSTNAME" envDefault:"mysql" json:"hostname"`
+	Port     int    `env:"MYSQL_PORT" envDefault:"3306" json:"port"`
+	Username string `env:"MYSQL_USERNAME" envDefault:"root" json:"username"`
+	Password string `env:"MYSQL_PASSWORD" envDefault:"root" json:"password"`
+	Database string `env:"MYSQL_DATABASE" envDefault:"transfers-db" json:"database"`
+}
+
+type Memcached struct {
+	Hostname   string `env:"MEMCACHED_HOSTNAME" envDefault:"memcached" json:"hostname"`
+	Port       int    `env:"MEMCACHED_PORT" envDefault:"11211" json:"port"`
+	TTLSeconds int    `env:"MEMCACHED_TTL_SECONDS" envDefault:"300" json:"ttl_seconds"`
+}
+
+type LocalCache struct{
+	TTLSeconds int    `env:"LocalCache_TTL_SECONDS" envDefault:"30" json:"ttl_seconds"`
 }
 
 func ParseFromEnv() *Config {
@@ -44,7 +53,8 @@ func ParseFromEnv() *Config {
 	for _, nested := range []interface{}{
 		&cfg.Business,
 		&cfg.MongoDBConfig,
-		&cfg.MYSQLConfig,
+		&cfg.MySQLConfig,
+		&cfg.MemcachedConfig,
 	} {
 		if err := env.Parse(nested); err != nil {
 			logging.Logger.Fatalf("error parsing config: %v", err)

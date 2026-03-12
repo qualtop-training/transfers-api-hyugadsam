@@ -84,9 +84,35 @@ docker compose up --build
 
 ### 5. Test MongoDB in Docker
 
-```
+```bash
 docker exec -it {containerID} mongo -u root -p root --authenticationDatabase admin
+show dbs
+use transfers-db
+db.transfers.find().pretty()
+db.transfers.count()
 ```
+
+### 5. Test MySQL in Docker
+
+```bash
+docker exec -it transfers-mysql mysql -u root -p
+show databases;
+use transfers-db;
+CREATE TABLE transfers (
+	id BIGINT AUTO_INCREMENT PRIMARY KEY,
+	sender_id VARCHAR(255) NOT NULL,
+	receiver_id VARCHAR(255) NOT NULL,
+	currency VARCHAR(10) NOT NULL,
+	amount DOUBLE NOT NULL,
+	state VARCHAR(50) NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+SELECT * FROM transfers;
+```
+
+### Test Memcached in Docker
+
 
 ## Training Workflow
 
