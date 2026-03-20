@@ -1,6 +1,7 @@
 package main
 
 import (
+	"transfers-api/internal/clients"
 	"transfers-api/internal/config"
 	"transfers-api/internal/handlers"
 	"transfers-api/internal/logging"
@@ -23,19 +24,23 @@ func main() {
 	transfersDB := repositories.NewTransfersMongoDBRepository(cfg.MongoDBConfig)
 	transfersCache := repositories.NewTransfersMemcachedRepository(cfg.MemcachedConfig)
 	transfersLocalCache := repositories.NewTransfersLocalCacheRepository(cfg.LocalCacheConfig)
-	
 	logger.Info("repositories created")
-
+	
+	// init clients
+	tranfersDBPublisher := clients.NewRabbitMQClient(cfg.RabbitMQConfig)
+	
 	// init services
-	transfersService := services.NewTransfersService(cfg.Business, transfersDB, transfersCache, transfersLocalCache)
+	transfersService := services.NewTransfersService(cfg.Business, transfersDB, transfersCache, transfersLocalCache, tranfersDBPublisher)
+	mqService := services.NewMqService(tranfersDBPublisher)
 	logger.Infof("services created")
 
 	// init handlers
 	transfersHandler := handlers.NewTransfersHandler(transfersService)
-	logger.Infof("handlers created")
+	mqHandler := handlers.NewMqHandler(mqService)
+	logger.Infof("Handlers created")
 
 	// init server
-	server := transport.NewHTTPServer(transfersHandler)
+	server := transport.NewHTTPServer(transfersHandler, mqHandler)
 	server.MapRoutes()
 	logger.Infof("server created, running %s@%s", version.AppName, version.Version)
 

@@ -1,9 +1,10 @@
 package transport
 
 import (
-	"github.com/gin-gonic/gin"
 	"transfers-api/internal/handlers"
 	"transfers-api/internal/logging"
+
+	"github.com/gin-gonic/gin"
 )
 
 //go:generate mockery --name TransfersHandler --structname TransfersHandlerMock --filenametransfers_handler_mock.go --output mocks --outpkg mocks
@@ -15,17 +16,24 @@ type TransfersHandler interface {
 	Delete(ctx *gin.Context)
 }
 
+type MqHandler interface {
+	Read(ctx *gin.Context)
+}
+
+
 type HTTPServer struct {
 	engine           *gin.Engine
 	transfersHandler TransfersHandler
+	mqHandler 		 MqHandler
 }
 
-func NewHTTPServer(transfersHandler TransfersHandler) *HTTPServer {
+func NewHTTPServer(transfersHandler TransfersHandler, mqHandler MqHandler) *HTTPServer {
 	engine := gin.Default()
 	engine.Use(handlers.AllowCORS)
 	return &HTTPServer{
 		engine:           engine,
 		transfersHandler: transfersHandler,
+		mqHandler: mqHandler,
 	}
 }
 
@@ -34,6 +42,7 @@ func (s *HTTPServer) MapRoutes() {
 	s.engine.POST("/transfers", s.transfersHandler.Create)
 	s.engine.PUT("/transfers/:id", s.transfersHandler.Update)
 	s.engine.DELETE("/transfers/:id", s.transfersHandler.Delete)
+	s.engine.GET("/mq/", s.mqHandler.Read)
 }
 
 func (s *HTTPServer) Run(port string) {
