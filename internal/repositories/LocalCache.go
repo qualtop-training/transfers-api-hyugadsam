@@ -139,3 +139,8 @@ func (r *TransfersLocalCacheRepo) Delete(ctx context.Context, id string) error {
 
 	return nil
 }
+
+func (r *TransfersLocalCacheRepo) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
+	var transferResult []models.Transfer
+	return  transferResult, nil
+}

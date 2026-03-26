@@ -14,6 +14,7 @@ type TransfersHandler interface {
 	GetByID(ctx *gin.Context)
 	Update(ctx *gin.Context)
 	Delete(ctx *gin.Context)
+	GetByUserID(ctx *gin.Context)
 }
 
 type MqHandler interface {
@@ -43,6 +44,7 @@ func (s *HTTPServer) MapRoutes() {
 	s.engine.PUT("/transfers/:id", s.transfersHandler.Update)
 	s.engine.DELETE("/transfers/:id", s.transfersHandler.Delete)
 	s.engine.GET("/mq/", s.mqHandler.Read)
+	s.engine.GET("/transfers", s.transfersHandler.GetByUserID)
 }
 
 func (s *HTTPServer) Run(port string) {

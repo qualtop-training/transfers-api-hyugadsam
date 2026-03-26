@@ -18,6 +18,7 @@ type TransfersRepository interface {
 	GetByID(ctx context.Context, id string) (models.Transfer, error)
 	Update(ctx context.Context, transfer models.Transfer) error
 	Delete(ctx context.Context, id string) error
+	GetByUserID(ctx context.Context, id string) ([]models.Transfer, error)
 }
 
 //go:generate mockery --name TransfersPublisher --structname TransfersPublisherMock --filename transfers_publisher_mock.go --output mocks --outpkg mocks
@@ -173,4 +174,12 @@ func (s *TransfersService) Delete(ctx context.Context, id string) error {
 		logging.Logger.Warnf("error deleting transfer %s from cache: %w", id, err)
 	}
 	return nil
+}
+
+func (s *TransfersService) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
+	transfer, err := s.transfersRepo.GetByUserID(ctx, id)
+	if err != nil {
+		return []models.Transfer{}, fmt.Errorf("error getting transfers from user %s from repository: %w", id, err)
+	}
+	return transfer, nil
 }

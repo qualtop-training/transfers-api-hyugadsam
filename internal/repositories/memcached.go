@@ -28,7 +28,6 @@ type transferCacheDAO struct {
 }
 
 func NewTransfersMemcachedRepository(cfg config.Memcached) *TransfersMemcacheRepo {
-
 	address := fmt.Sprintf("%s:%d", cfg.Hostname, cfg.Port)
 	client := memcache.New(address)
 	return &TransfersMemcacheRepo{
@@ -173,3 +172,9 @@ func (r *TransfersMemcacheRepo) Delete(ctx context.Context, id string) error {
 
 	return nil
 }
+
+func (r *TransfersMemcacheRepo) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
+	var transferResult []models.Transfer
+	return  transferResult, nil
+}
+

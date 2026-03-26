@@ -208,3 +208,9 @@ func joinClauses(clauses []string) string {
 	}
 	return out
 }
+
+func (r *TransfersMySQLRepo) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
+	var transferResult []models.Transfer
+	return  transferResult, nil
+}
+
