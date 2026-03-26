@@ -20,6 +20,7 @@ type TransfersRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+//go:generate mockery --name TransfersPublisher --structname TransfersPublisherMock --filename transfers_publisher_mock.go --output mocks --outpkg mocks
 type TransfersPublisher interface {
 	Publish(operation string, transferID string) error
 	Read() (string, error) 
@@ -48,7 +49,7 @@ func (s *TransfersService) Create(ctx context.Context, transfer models.Transfer)
 		return "", fmt.Errorf("sender_id is required: %w", known_errors.ErrBadRequest)
 	}
 	if strings.TrimSpace(transfer.ReceiverID) == "" {
-		return "", fmt.Errorf("sender_id is required: %w", known_errors.ErrBadRequest)
+		return "", fmt.Errorf("Receiver_id is required: %w", known_errors.ErrBadRequest)
 	}
 	if transfer.Currency == enums.CurrencyUnknown {
 		return "", fmt.Errorf("invalid currency %s: %w", transfer.Currency.String(), known_errors.ErrBadRequest)
@@ -87,8 +88,15 @@ func (s *TransfersService) Create(ctx context.Context, transfer models.Transfer)
 }
 
 func (s *TransfersService) GetByID(ctx context.Context, id string) (models.Transfer, error) {
-	// first try to get from cache
-	transfer, err := s.transfersCache.GetByID(ctx, id)
+	// first try to get from local cache
+	transfer, err := s.transfersCacheLocal.GetByID(ctx, id)
+	if err == nil {
+		logging.Logger.Infof("Transfer retrieved from local cache with ID: %s", id)
+		return transfer, nil
+	}
+	
+	// second try to get from cache
+	transfer, err = s.transfersCache.GetByID(ctx, id)
 	if err == nil {
 		logging.Logger.Infof("Transfer retrieved from cache with ID: %s", id)
 		return transfer, nil
