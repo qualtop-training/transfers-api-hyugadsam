@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"transfers-api/internal/clients"
 	"transfers-api/internal/config"
 	"transfers-api/internal/handlers"
@@ -20,30 +21,57 @@ func main() {
 	cfg := config.ParseFromEnv()
 	logger.Infof("config loaded: %v", cfg.String())
 
-	// init repositories
+	// ── Repositories ──────────────────────────────────────────────────────────
 	transfersDB := repositories.NewTransfersMongoDBRepository(cfg.MongoDBConfig)
 	transfersCache := repositories.NewTransfersMemcachedRepository(cfg.MemcachedConfig)
 	transfersLocalCache := repositories.NewTransfersLocalCacheRepository(cfg.LocalCacheConfig)
-	logger.Info("repositories created")
-	
-	// init clients
-	tranfersDBPublisher := clients.NewRabbitMQClient(cfg.RabbitMQConfig)
-	
-	// init services
-	transfersService := services.NewTransfersService(cfg.Business, transfersDB, transfersCache, transfersLocalCache, tranfersDBPublisher)
-	mqService := services.NewMqService(tranfersDBPublisher)
-	logger.Infof("services created")
 
-	// init handlers
+	// User repository — chosen by AUTH_USER_DB_DRIVER (mongodb | mysql)
+	var usersRepo services.UserRepository
+	switch cfg.Auth.UserDBDriver {
+	case "mysql":
+		mysqlRepo := repositories.NewTransfersMySQLRepository(cfg.MySQLConfig)
+		usersRepo = repositories.NewUsersMySQLRepository(mysqlRepo.DB())
+		logger.Info("using MySQL for user repository")
+	default:
+		usersRepo = repositories.NewUsersMongoDBRepository(cfg.MongoDBConfig)
+		logger.Info("using MongoDB for user repository")
+	}
+	logger.Info("repositories created")
+
+	// ── Clients ───────────────────────────────────────────────────────────────
+	transfersPublisher := clients.NewRabbitMQClient(cfg.RabbitMQConfig)
+
+	// ── Services ──────────────────────────────────────────────────────────────
+	transfersService := services.NewTransfersService(cfg.Business, transfersDB, transfersCache, transfersLocalCache, transfersPublisher)
+	mqService := services.NewMqService(transfersPublisher)
+
+	cryptoService := services.NewArgon2idHasher()
+	jwtService := services.NewJWTService(cfg.Auth)
+	authService := services.NewAuthService(usersRepo, cryptoService, jwtService, cfg.Auth.RefreshTokenTTLDays)
+	logger.Info("services created")
+
+	// ── Handlers ──────────────────────────────────────────────────────────────
 	transfersHandler := handlers.NewTransfersHandler(transfersService)
 	mqHandler := handlers.NewMqHandler(mqService)
-	logger.Infof("Handlers created")
+	authHandler := handlers.NewAuthHandler(authService)
+	logger.Info("handlers created")
 
-	// init server
-	server := transport.NewHTTPServer(transfersHandler, mqHandler)
+	// ── Seed default admin ────────────────────────────────────────────────────
+	services.SeedDefaultAdmin(
+		context.Background(),
+		usersRepo,
+		cryptoService,
+		cfg.Auth.DefaultAdminUsername,
+		cfg.Auth.DefaultAdminEmail,
+		cfg.Auth.DefaultAdminPassword,
+	)
+	logger.Info("seed step completed")
+
+	// ── Server ────────────────────────────────────────────────────────────────
+	server := transport.NewHTTPServer(transfersHandler, mqHandler, authHandler, jwtService)
 	server.MapRoutes()
 	logger.Infof("server created, running %s@%s", version.AppName, version.Version)
 
-	// run server
 	server.Run(":8080")
 }

@@ -69,6 +69,17 @@ services:
       # ---- LocalCache ----
       LocalCache_TTL_SECONDS: 30
 
+      # ---- Auth ----
+      JWT_SECRET: change-me-in-production
+      JWT_ACCESS_TTL_HOURS: 1
+      JWT_REFRESH_TTL_DAYS: 7
+      AUTH_USER_DB_DRIVER: mongodb
+
+      # ---- Default admin user (seeded on first run) ----
+      DEFAULT_ADMIN_USERNAME: admin
+      DEFAULT_ADMIN_EMAIL: admin@transfers.local
+      DEFAULT_ADMIN_PASSWORD: Admin1234!
+
     restart: always
 
 volumes:

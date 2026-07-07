@@ -53,6 +53,11 @@ func NewTransfersMySQLRepository(cfg config.MySQL) *TransfersMySQLRepo {
 	}
 }
 
+// DB returns the underlying *sql.DB so other repositories can share the connection.
+func (r *TransfersMySQLRepo) DB() *sql.DB {
+	return r.db
+}
+
 func (r *TransfersMySQLRepo) Create(ctx context.Context, transfer models.Transfer) (string, error) {
 
 	dao := transferMySQLDAO{
@@ -211,6 +216,5 @@ func joinClauses(clauses []string) string {
 
 func (r *TransfersMySQLRepo) GetByUserID(ctx context.Context, id string) ([]models.Transfer, error) {
 	var transferResult []models.Transfer
-	return  transferResult, nil
+	return transferResult, nil
 }
-

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"transfers-api/internal/config"
 	"transfers-api/internal/enums"
+	"transfers-api/internal/known_errors"
 	"transfers-api/internal/models"
 	"transfers-api/internal/services/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
 
 func TestTransferService_GetByID(t *testing.T) {
 
@@ -22,21 +22,21 @@ func TestTransferService_GetByID(t *testing.T) {
 	}
 
 	transfer := models.Transfer{
-		ID:        "transfer1234",
-		Amount:    100,
-		SenderID:  "Sender",
-		ReceiverID:"Receiver",
-		Currency:  enums.CurrencyARS,
-		State:     "OK",
+		ID:         "transfer1234",
+		Amount:     100,
+		SenderID:   "Sender",
+		ReceiverID: "Receiver",
+		Currency:   enums.CurrencyARS,
+		State:      "OK",
 	}
 
 	msgNotFound := "Not Found"
 
 	type testCase struct {
-		name        string
-		transferID  string
-		mockSetup   func(repo, cache, local *mocks.TransfersRepositoryMock, pub *mocks.TransfersPublisherMock)
-		expectedErr string
+		name           string
+		transferID     string
+		mockSetup      func(repo, cache, local *mocks.TransfersRepositoryMock, pub *mocks.TransfersPublisherMock)
+		expectedErr    string
 		expectedSource string // "local", "cache", "repo"
 	}
 
@@ -47,7 +47,7 @@ func TestTransferService_GetByID(t *testing.T) {
 			mockSetup: func(repo, cache, local *mocks.TransfersRepositoryMock, pub *mocks.TransfersPublisherMock) {
 				local.On("GetByID", context.Background(), transfer.ID).Return(transfer, nil)
 			},
-			expectedErr:   "",
+			expectedErr:    "",
 			expectedSource: "local",
 		},
 		{
@@ -58,7 +58,7 @@ func TestTransferService_GetByID(t *testing.T) {
 				local.On("GetByID", context.Background(), transfer.ID).Return(models.Transfer{}, errors.New(msgNotFound))
 				cache.On("GetByID", context.Background(), transfer.ID).Return(transfer, nil)
 			},
-			expectedErr:   "",
+			expectedErr:    "",
 			expectedSource: "cache",
 		},
 		{
@@ -73,7 +73,7 @@ func TestTransferService_GetByID(t *testing.T) {
 				cache.On("Create", mock.Anything, mock.Anything).Return(transfer.ID, nil)
 				local.On("Create", mock.Anything, mock.Anything).Return(transfer.ID, nil)
 			},
-			expectedErr:   "",
+			expectedErr:    "",
 			expectedSource: "repo",
 		},
 		{
@@ -84,7 +84,7 @@ func TestTransferService_GetByID(t *testing.T) {
 				cache.On("GetByID", context.Background(), transfer.ID).Return(models.Transfer{}, errors.New(msgNotFound))
 				repo.On("GetByID", context.Background(), transfer.ID).Return(models.Transfer{}, errors.New(msgNotFound))
 			},
-			expectedErr:   msgNotFound,
+			expectedErr:    msgNotFound,
 			expectedSource: "",
 		},
 	}
@@ -238,6 +238,7 @@ func TestTransfersService_Create(t *testing.T) {
 		})
 	}
 }
+
 // ----------------------
 // Test Update
 // ----------------------
@@ -395,16 +396,126 @@ func TestTransfersService_Delete(t *testing.T) {
 	})
 }
 
+// ─────────────────────────────────────────────────────────────────
+// GetByUserID
+// ─────────────────────────────────────────────────────────────────
 
+func TestTransfersService_GetByUserID(t *testing.T) {
+	ctx := context.Background()
 
+	transfers := []models.Transfer{
+		{ID: "t1", SenderID: "user1", ReceiverID: "r1", Currency: enums.CurrencyUSD, Amount: 100, State: "ok"},
+		{ID: "t2", SenderID: "user1", ReceiverID: "r2", Currency: enums.CurrencyEUR, Amount: 200, State: "ok"},
+	}
 
+	type testCase struct {
+		name      string
+		userID    string
+		mockSetup func(repo, cache, local *mocks.TransfersRepositoryMock)
+		wantErr   bool
+		wantLen   int
+	}
 
+	tests := []testCase{
+		{
+			name:   "success",
+			userID: "user1",
+			mockSetup: func(repo, cache, local *mocks.TransfersRepositoryMock) {
+				repo.On("GetByUserID", ctx, "user1").Return(transfers, nil)
+			},
+			wantErr: false,
+			wantLen: 2,
+		},
+		{
+			name:   "repo_error",
+			userID: "user1",
+			mockSetup: func(repo, cache, local *mocks.TransfersRepositoryMock) {
+				repo.On("GetByUserID", ctx, "user1").Return([]models.Transfer{}, errors.New("db error"))
+			},
+			wantErr: true,
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := new(mocks.TransfersRepositoryMock)
+			cache := new(mocks.TransfersRepositoryMock)
+			local := new(mocks.TransfersRepositoryMock)
 
+			tt.mockSetup(repo, cache, local)
 
+			service := NewTransfersService(config.BusinessConfig{TransferMinAmount: 1}, repo, cache, local, &noopPublisher{})
 
+			result, err := service.GetByUserID(ctx, tt.userID)
 
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, result, tt.wantLen)
+			}
 
+			repo.AssertExpectations(t)
+		})
+	}
+}
 
+// ─────────────────────────────────────────────────────────────────
+// Create — cache error path (warns but does not fail)
+// ─────────────────────────────────────────────────────────────────
 
+func TestTransfersService_Create_CacheError(t *testing.T) {
+	ctx := context.Background()
 
+	transfer := models.Transfer{
+		SenderID:   "Sender",
+		ReceiverID: "Receiver",
+		Currency:   enums.CurrencyARS,
+		Amount:     100,
+		State:      "OK",
+	}
+
+	repo := new(mocks.TransfersRepositoryMock)
+	cache := new(mocks.TransfersRepositoryMock)
+	local := new(mocks.TransfersRepositoryMock)
+
+	repo.On("Create", ctx, transfer).Return("id-001", nil)
+	// Both caches fail — should just warn, not propagate the error.
+	cache.On("Create", ctx, mock.AnythingOfType("models.Transfer")).Return("", errors.New("cache down"))
+	local.On("Create", ctx, mock.AnythingOfType("models.Transfer")).Return("", errors.New("local cache down"))
+
+	service := NewTransfersService(config.BusinessConfig{TransferMinAmount: 1}, repo, cache, local, &noopPublisher{})
+
+	id, err := service.Create(ctx, transfer)
+
+	assert.NoError(t, err, "cache errors must not fail the Create call")
+	assert.Equal(t, "id-001", id)
+
+	repo.AssertExpectations(t)
+	cache.AssertExpectations(t)
+	local.AssertExpectations(t)
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Update — all-empty fields validation
+// ─────────────────────────────────────────────────────────────────
+
+func TestTransfersService_Update_AllFieldsEmpty(t *testing.T) {
+	ctx := context.Background()
+
+	repo := new(mocks.TransfersRepositoryMock)
+	cache := new(mocks.TransfersRepositoryMock)
+	local := new(mocks.TransfersRepositoryMock)
+
+	service := NewTransfersService(config.BusinessConfig{TransferMinAmount: 1}, repo, cache, local, &noopPublisher{})
+
+	// All optional fields explicitly zero/empty AND Currency = CurrencyUnknown (8)
+	// so the service's "no fields to update" guard triggers.
+	err := service.Update(ctx, models.Transfer{
+		ID:       "t-1",
+		Currency: enums.CurrencyUnknown, // must be CurrencyUnknown, not the zero value (USD)
+	})
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, known_errors.ErrBadRequest)
+}
